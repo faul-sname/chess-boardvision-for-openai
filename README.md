@@ -38,7 +38,7 @@ The step in **bold** is the one I am currently working on.
         * `$ print square E4 > white pawn`
         * `$ print active color > black`
 6. **Slowly wean the model off of the surrounding context for the `detailed move` commands -- do this by slowly dropping the probability of each of the 6 surrounding commands from 1 to 0.2**
-7. Test how the model does, at this point, on sequences that look like `init standard / move white pawn from E2 to E4 / move black pawn from E7 to E5 / move white pawn from D2 to D3 / get (D[2-7]|E[2-7])`. If it does poorly here, fine-tune further on this type of sequence until the model groks this structure.
+7. **Test how the model does, at this point, on sequences that look like `init standard / move white pawn from E2 to E4 / move black pawn from E7 to E5 / move white pawn from D2 to D3 / get (D[2-7]|E[2-7])`. If it does poorly here, fine-tune further on this type of sequence until the model groks this structure.**
 8. Introduce the `whose-turn` command. It will return `white` or `black` depending on whose turn it is, switching every time a move is made.
 9. Introduce the idea of an illegal move by having a player move when it is not their turn. The model will, instead of returning `ok`, return `illegal: not your turn`.
 10. Add in illegal moves where the player tries to move a piece that is not in the starting position
@@ -53,7 +53,7 @@ The step in **bold** is the one I am currently working on.
 19. Fine-tune a whole bunch on real games, with a few examples thrown in where the player makes an illegal move, and no examples where the computer makes an illegal move
 20. Fine-tune to remove prefix junk
 
-## Current state
+## Updates as of 2023-02-20
 
 After the introduction of the `detailed move` command, interaction with the model looks like
 
@@ -77,3 +77,54 @@ $ show active color
 ```
 
 The model seems to be struggling a little bit to pick up the idea that contents of a square can change, and that the active player toggles after each move. However, so far I think this is more of a problem of slow learning than a problem of not having the capacity to learn this at all.
+
+Update: after 5 more fine-tune rounds with increasing amounts of dropout, the output is looking a lot better:
+
+Starting from the prefix of
+```
+$ init standard
+> ok (99.78%)
+$ detailed move white pawn from a2 to a4
+> ok (99.93%)
+```
+* the command `print square a2` now says `empty` with 99.35% confidence
+* the command `print square a4` now says `white pawn` with 99.99% confidence
+* the command `print active color` now says `black` with 97.32% confidence
+* performance remains very good (99%+) on `print *` commands that occur _before_ any `detailed move` commands
+
+Starting with the somewhat more complex prefix of
+```
+$ init standard
+> ok
+$ detailed move white pawn from d2 to d4
+> ok
+$ detailed move black pawn from d7 to d5
+> ok
+$ detailed move white pawn from e2 to e3
+> ok
+$ detailed move black pawn from c7 to c6
+> ok
+```
+
+I observe
+
+* `print active color` => `white` (94.59%)
+* `print square d2` => `empty` (86.83%)
+* `print square d3` => `empty` (99.80%)
+* `print square d4` => `white pawn` (96.70%)
+* `print square c7` => `empty` (99.78%)
+* `print square c6` => `black pawn` (99.98%)
+
+so it really does look to me like the model has grokked the concept of "pawns can move".
+
+Additionally of potential interest:
+```
+$ detailed move white knight from b1 to c3
+> ok
+$ print square b1
+> empty (83.87%)
+$ print square c3
+> white pawn (86.21%) | white knight (12.95%)
+```
+Right now the model seems to think that the thing in the destination square is always a pawn (which is reasonable, it's never seen anything else), but even without any training at all it has a slight suspicion that the content of the destination square is instead the content of the source square.
+

@@ -329,7 +329,7 @@ if __name__ == '__main__':
         parent_model = fts[-1]
         prob = 5 / (i+5)
         stage2_model = run_finetune_stage2(
-            f'stage2-move-pawns-{i+1:2d}',
+            f'stage2-move-pawns-{i+1:02d}',
             parent_model,
             {
                 'print_turn_before_prob': prob,
